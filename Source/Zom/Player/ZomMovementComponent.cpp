@@ -29,6 +29,7 @@ UZomMovementComponent::UZomMovementComponent()
 	JumpBufferTime = 0.1f;
 	
 	// Hovering
+	bIsOnGround = false;
 	bIsFalling = false;
 	GravityForce = 980.f;
 	LineTraceLength = 200.f;
@@ -81,6 +82,42 @@ void UZomMovementComponent::SetMoveRightLeftInput(float Value)
 void UZomMovementComponent::SetJumpInput(bool bIsJumping)
 {
 	bIsPressingJumpInput = bIsJumping;
+}
+
+/**
+ * @brief Gets the movement speed for the character
+ * @return Speed of the forward movement
+ */
+float UZomMovementComponent::GetMovementSpeed() const
+{
+	return FVector::DotProduct(Velocity.ProjectOnTo(GetOwner()->GetActorForwardVector()), GetOwner()->GetActorForwardVector());
+}
+
+/**
+ * @brief Checks if player is on ground
+ * @return bIsOnGround
+ */
+bool UZomMovementComponent::IsOnGround() const
+{
+	return bIsOnGround;
+}
+
+/**
+ * @brief Checks if jump force is being applied
+ * @return bIsCurrentlyJumping
+ */
+bool UZomMovementComponent::IsJumping() const
+{
+	return bIsCurrentlyJumping;
+}
+
+/**
+ * @brief Checks if player is in the air falling and not jumping anymore
+ * @return bIsFalling
+ */
+bool UZomMovementComponent::IsFalling() const
+{
+	return bIsFalling;
 }
 
 /**

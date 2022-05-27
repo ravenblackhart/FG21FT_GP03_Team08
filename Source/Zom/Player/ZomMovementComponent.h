@@ -18,7 +18,18 @@ public:
 	void SetMoveForwardBackwardInput(float Value);
 	void SetMoveRightLeftInput(float Value);
 	void SetJumpInput(bool bIsJumping);
-
+	
+	UFUNCTION(BlueprintPure)
+	float GetMovementSpeed() const;
+	
+	UFUNCTION(BlueprintPure)
+	bool IsOnGround() const;
+	
+	UFUNCTION(BlueprintPure)
+	bool IsJumping() const;
+	
+	UFUNCTION(BlueprintPure)
+	bool IsFalling() const;
 private:
 	// Input
 	float MoveForwardBackwardInput;
