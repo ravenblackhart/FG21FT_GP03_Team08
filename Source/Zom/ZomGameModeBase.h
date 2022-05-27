@@ -22,4 +22,7 @@ public:
 
 	UPROPERTY(BlueprintReadWrite)
 	TArray<int> AvailableAllies;
+
+	UPROPERTY(BlueprintReadWrite)
+	int ActiveRegion = 0;
 };
