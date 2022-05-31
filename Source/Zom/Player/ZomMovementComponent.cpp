@@ -262,7 +262,7 @@ void UZomMovementComponent::Jump(float DeltaTime)
 			float JumpPercentage = CurrentJumpTime / JumpTime;
 			float JumpCurveValue = JumpCurve->GetFloatValue(JumpPercentage * MaxJumpCurveTime);
 
-			bIsFalling = JumpPercentage > 1;
+			bIsFalling = JumpPercentage >= 1;
 
 			if (Velocity.Z < 0)
 			{

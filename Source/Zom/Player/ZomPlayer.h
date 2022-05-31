@@ -25,6 +25,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* FollowCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UZomMovementComponent* MovementComponent;
 	
 	AZomPlayer();
 
@@ -40,9 +43,6 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* StaticMesh;
-
-	UPROPERTY(VisibleAnywhere)
-	UZomMovementComponent* MovementComponent;
 
 	void SetupPlayerInputComponent(UInputComponent* InputComp) override;
 	void HandleMoveForwardBackwardInput(float Value);
