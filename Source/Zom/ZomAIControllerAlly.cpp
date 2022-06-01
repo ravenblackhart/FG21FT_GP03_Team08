@@ -22,8 +22,8 @@ void AZomAIControllerAlly::OnPerceptionUpdated(AActor* actor, FAIStimulus stimul
 
 		if (stimulus.WasSuccessfullySensed())
 		{
-			UE_LOG(LogTemp, Warning, TEXT("See Ram!"));
-			bbComp->SetValueAsObject("Payload", actor);
+			//UE_LOG(LogTemp, Warning, TEXT("See Ram!"));
+			//bbComp->SetValueAsObject("Payload", actor);
 			//bbComp->SetValueAsBool("Alert", true);
 			//bbComp->ClearValue("LastSpotPos");
 			return;

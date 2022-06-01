@@ -6,6 +6,7 @@
 #include "AIController.h"
 #include "BrainComponent.h"
 #include "Zom/ZomGameModeBase.h"
+#include "UObject/UObjectBaseUtility.h"
 
 AZomAlly::AZomAlly()
 {
@@ -36,6 +37,15 @@ void AZomAlly::ActivateAlly_Implementation()
 void AZomAlly::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (region == -1)
+	{
+		region = 0;
+		FString name = GetName();
+		UE_LOG(LogTemp, Warning, TEXT("Region not set on ally: %s"), *name);
+		if (GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Region not set on ally, see LogTemp warning"));
+	}
 
 	Cast<AZomGameModeBase>(UGameplayStatics::GetGameMode(GetWorld()))->AvailableAllies[region]++;
 }
