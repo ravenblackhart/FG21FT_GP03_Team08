@@ -27,7 +27,7 @@ UZomMovementComponent::UZomMovementComponent()
 	CoyoteTime = 0.1f;
 	CurrentJumpBufferTimer = 0.f;
 	JumpBufferTime = 0.1f;
-	
+
 	// Hovering
 	bIsOnGround = false;
 	bIsFalling = false;
@@ -50,7 +50,7 @@ void UZomMovementComponent::BeginPlay()
 void UZomMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	
+
 	Hover(DeltaTime);
 	Jump(DeltaTime);
 	Rotate(DeltaTime);
@@ -140,7 +140,7 @@ bool UZomMovementComponent::CanJump() const
 
 /**
  * @brief Rotates the player when changing direction with the help of WASD and the camera
- * @param DeltaTime 
+ * @param DeltaTime
  */
 void UZomMovementComponent::Rotate(float DeltaTime) const
 {
@@ -176,7 +176,7 @@ void UZomMovementComponent::Hover(float DeltaTime)
 	FHitResult Hit;
 	FCollisionQueryParams TraceParams;
 	TraceParams.AddIgnoredActor(Owner);
-	
+
 	// Push Up (On Ground)
 	// TODO: Make sure its the ground that was hit
 	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(30.0f), TraceParams))
@@ -189,13 +189,19 @@ void UZomMovementComponent::Hover(float DeltaTime)
 		{
 			CurrentCoyoteTimer = 0.f;
 			bIsOnGround = true;
+			bIsFalling = false;
 		}
-		
+		else if (!bIsCurrentlyJumping && !bIsOnGround)
+		{
+			bIsFalling = true;
+		}
+
 		if (bIsOnGround)
 		{
 			AddForce(FVector::DownVector * SpringHoverForce);
 		}
-	} else if (!bIsCurrentlyJumping)
+	}
+	else if (!bIsCurrentlyJumping)
 	{
 		if (bIsOnGround)
 		{
@@ -207,12 +213,14 @@ void UZomMovementComponent::Hover(float DeltaTime)
 				bIsOnGround = false;
 			}
 		}
+
+		bIsFalling = true;
 	}
 }
 
 /**
  * @brief Check if the player is jumping and adds upward force
- * @param DeltaTime 
+ * @param DeltaTime
  */
 void UZomMovementComponent::Jump(float DeltaTime)
 {
@@ -224,9 +232,11 @@ void UZomMovementComponent::Jump(float DeltaTime)
 		CurrentJumpBufferTimer = 0;
 		CurrentCoyoteTimer = 0;
 		bIsCurrentlyJumping = true;
+		bIsFalling = false;
 		bIsOnGround = false;
 		bIsPressingJumpInput = false;
-	} else if (bIsPressingJumpInput && !bQueueJump) // Queuing a jump
+	}
+	else if (bIsPressingJumpInput && !bQueueJump) // Queuing a jump
 	{
 		bQueueJump = true;
 	}
@@ -248,7 +258,7 @@ void UZomMovementComponent::Jump(float DeltaTime)
 	if (bIsCurrentlyJumping)
 	{
 		CurrentJumpTime += DeltaTime;
-		
+
 		if (CurrentJumpTime >= JumpTime || bIsFalling && bIsOnGround)
 		{
 			bIsFalling = false;
@@ -262,11 +272,9 @@ void UZomMovementComponent::Jump(float DeltaTime)
 			float JumpPercentage = CurrentJumpTime / JumpTime;
 			float JumpCurveValue = JumpCurve->GetFloatValue(JumpPercentage * MaxJumpCurveTime);
 
-			bIsFalling = JumpPercentage >= 1;
-
 			if (Velocity.Z < 0)
 			{
-				 Velocity.Z = 0;
+				Velocity.Z = 0;
 			}
 
 			AddForce(FVector::UpVector * (JumpForce * JumpCurveValue));
@@ -285,7 +293,7 @@ void UZomMovementComponent::Move(float DeltaTime)
 	// Add forward force and friction
 	AddForce(Owner->GetActorForwardVector() * Acceleration * IsMoving());
 	AddMovementFriction(Owner->GetActorForwardVector());
-	
+
 	float RemainingTime = DeltaTime;
 	int Interations = 0;
 
@@ -323,19 +331,19 @@ void UZomMovementComponent::Move(float DeltaTime)
  * @brief Adds force incrementally
  * @param Force Vector for which direction and force to add
  */void UZomMovementComponent::AddForce(const FVector& Force)
-{
-	Velocity += Force * GetWorld()->GetDeltaSeconds();
-}
+ {
+	 Velocity += Force * GetWorld()->GetDeltaSeconds();
+ }
 
-/**
- * @brief Adjust and adds friction the forward movement force
- * @param ProjectOnToDirection 
- */
-void UZomMovementComponent::AddMovementFriction(const FVector& ProjectOnToDirection)
-{
-	FVector ForwardMovement = Velocity.ProjectOnTo(ProjectOnToDirection);
-	ForwardMovement -= (ForwardMovement * ForwardMovementFriction * GetWorld()->GetDeltaSeconds());
-	ForwardMovement.Z = Velocity.Z;
+ /**
+  * @brief Adjust and adds friction the forward movement force
+  * @param ProjectOnToDirection
+  */
+ void UZomMovementComponent::AddMovementFriction(const FVector& ProjectOnToDirection)
+ {
+	 FVector ForwardMovement = Velocity.ProjectOnTo(ProjectOnToDirection);
+	 ForwardMovement -= (ForwardMovement * ForwardMovementFriction * GetWorld()->GetDeltaSeconds());
+	 ForwardMovement.Z = Velocity.Z;
 
-	Velocity = ForwardMovement;
-}
+	 Velocity = ForwardMovement;
+ }
