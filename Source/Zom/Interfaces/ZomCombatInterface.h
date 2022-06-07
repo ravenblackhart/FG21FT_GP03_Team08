@@ -18,9 +18,14 @@ class ZOM_API IZomCombatInterface
 	GENERATED_BODY()
 
 public:
+	
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category="Combat")
 	bool IsTargetable();
 
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category="Combat")
 	ECombatAffiliationType GetCombatAffiliation();
+
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category="Combat")
+	void TakeDamage(float Amount);
+	
 };

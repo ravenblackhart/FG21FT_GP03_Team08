@@ -36,9 +36,7 @@ void AZomAlly::ActivateAlly_Implementation()
 
 void AZomAlly::BeginPlay()
 {
-	Super::BeginPlay();
-
-	if (region == -1)
+	if (region < 0)
 	{
 		region = 0;
 		FString name = GetName();
@@ -47,7 +45,7 @@ void AZomAlly::BeginPlay()
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Region not set on ally, see LogTemp warning"));
 	}
 
-	Cast<AZomGameModeBase>(UGameplayStatics::GetGameMode(GetWorld()))->AvailableAllies[region]++;
+	Super::BeginPlay();
 }
 
 void AZomAlly::Tick(float DeltaTime)

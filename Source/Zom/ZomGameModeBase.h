@@ -9,7 +9,7 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(Abstract)
 class ZOM_API AZomGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
