@@ -24,5 +24,11 @@ public:
 	TArray<int> AvailableAllies;
 
 	UPROPERTY(BlueprintReadWrite)
+	TArray<AActor*> RespawnPoints;
+
+	UPROPERTY(BlueprintReadWrite)
 	int ActiveRegion = 0;
+
+	UFUNCTION(BlueprintCallable)
+	void RegisterSpawner(AActor* spawner, int region);
 };

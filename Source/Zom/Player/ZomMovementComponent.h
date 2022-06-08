@@ -30,6 +30,12 @@ public:
 	
 	UFUNCTION(BlueprintPure)
 	bool IsFalling() const;
+
+	UFUNCTION(BlueprintCallable)
+	void DisableMovement();
+	
+	UFUNCTION(BlueprintCallable)
+	void EnableMovement();
 private:
 	// Input
 	float MoveForwardBackwardInput;
@@ -37,6 +43,7 @@ private:
 	bool bIsPressingJumpInput;
 	
 	bool bIsCurrentlyJumping;
+	bool bIsMovementDisabled;
 	bool bIsOnGround;
 	bool bIsFalling;
 	bool bQueueJump;
@@ -106,6 +113,6 @@ private:
 	void Hover(float DeltaTime);
 	void Jump(float DeltaTime);
 	void Move(float DeltaTime);
-	void AddForce(const FVector& Force);
+	void AddForce(const FVector& Force, float DeltaTime);
 	void AddMovementFriction(const FVector& ForwardVector);
 };

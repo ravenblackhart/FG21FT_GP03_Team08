@@ -15,6 +15,7 @@ UZomMovementComponent::UZomMovementComponent()
 	Acceleration = 1000.f;
 	ForwardMovementFriction = 4.5f;
 	CharacterRotationRate = 10.f;
+	bIsMovementDisabled = false;
 
 	// Jump
 	bIsCurrentlyJumping = false;
@@ -29,7 +30,7 @@ UZomMovementComponent::UZomMovementComponent()
 	JumpBufferTime = 0.1f;
 
 	// Hovering
-	bIsOnGround = false;
+	bIsOnGround = true;
 	bIsFalling = false;
 	GravityForce = 980.f;
 	LineTraceLength = 200.f;
@@ -50,7 +51,7 @@ void UZomMovementComponent::BeginPlay()
 void UZomMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
+	
 	Hover(DeltaTime);
 	Jump(DeltaTime);
 	Rotate(DeltaTime);
@@ -63,6 +64,11 @@ void UZomMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
  */
 void UZomMovementComponent::SetMoveForwardBackwardInput(float Value)
 {
+	if (bIsMovementDisabled)
+	{
+		return;
+	}
+
 	MoveForwardBackwardInput = Value;
 }
 
@@ -72,6 +78,11 @@ void UZomMovementComponent::SetMoveForwardBackwardInput(float Value)
  */
 void UZomMovementComponent::SetMoveRightLeftInput(float Value)
 {
+	if (bIsMovementDisabled)
+	{
+		return;
+	}
+
 	MoveRightLeftInput = Value;
 }
 
@@ -81,7 +92,7 @@ void UZomMovementComponent::SetMoveRightLeftInput(float Value)
  */
 void UZomMovementComponent::SetJumpInput(bool bIsJumping)
 {
-	bIsPressingJumpInput = bIsJumping;
+	bIsPressingJumpInput = !bIsMovementDisabled && bIsJumping;
 }
 
 /**
@@ -118,6 +129,20 @@ bool UZomMovementComponent::IsJumping() const
 bool UZomMovementComponent::IsFalling() const
 {
 	return bIsFalling;
+}
+
+void UZomMovementComponent::DisableMovement()
+{
+	Velocity = FVector::ZeroVector;
+	bIsMovementDisabled = true;
+	MoveForwardBackwardInput = 0;
+	MoveRightLeftInput = 0;
+}
+
+void UZomMovementComponent::EnableMovement()
+{
+	Velocity = FVector::ZeroVector;
+	bIsMovementDisabled = false;
 }
 
 /**
@@ -167,7 +192,7 @@ void UZomMovementComponent::Rotate(float DeltaTime) const
 void UZomMovementComponent::Hover(float DeltaTime)
 {
 	// Push Down
-	AddForce(FVector::DownVector * GravityForce);
+	AddForce(FVector::DownVector * GravityForce, DeltaTime);
 
 	// Sweep data
 	AActor* Owner = GetOwner();
@@ -179,10 +204,12 @@ void UZomMovementComponent::Hover(float DeltaTime)
 
 	// Push Up (On Ground)
 	// TODO: Make sure its the ground that was hit
-	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(30.0f), TraceParams))
+	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_WorldStatic, FCollisionShape::MakeSphere(30.0f), TraceParams))
 	{
 		float HitDist = FVector::Distance(Start, Hit.Location);
 		float Difference = HitDist - RideHeight;
+		float StaticTime = 1.f/60.f; // 60 fps
+		float CappedDeltaTime = FMath::Min(DeltaTime, StaticTime);
 		float SpringHoverForce = (Difference * RideSpringStrength) + (Velocity.Z * RideSpringDamper);
 
 		if (HitDist <= RideHeight && !bIsCurrentlyJumping)
@@ -198,7 +225,7 @@ void UZomMovementComponent::Hover(float DeltaTime)
 
 		if (bIsOnGround)
 		{
-			AddForce(FVector::DownVector * SpringHoverForce);
+			AddForce(FVector::DownVector * SpringHoverForce, CappedDeltaTime);
 		}
 	}
 	else if (!bIsCurrentlyJumping)
@@ -212,9 +239,10 @@ void UZomMovementComponent::Hover(float DeltaTime)
 				CurrentCoyoteTimer = 0.f;
 				bIsOnGround = false;
 			}
+		} else
+		{
+			bIsFalling = true;
 		}
-
-		bIsFalling = true;
 	}
 }
 
@@ -232,7 +260,6 @@ void UZomMovementComponent::Jump(float DeltaTime)
 		CurrentJumpBufferTimer = 0;
 		CurrentCoyoteTimer = 0;
 		bIsCurrentlyJumping = true;
-		bIsFalling = false;
 		bIsOnGround = false;
 		bIsPressingJumpInput = false;
 	}
@@ -261,8 +288,8 @@ void UZomMovementComponent::Jump(float DeltaTime)
 
 		if (CurrentJumpTime >= JumpTime || bIsFalling && bIsOnGround)
 		{
-			bIsFalling = false;
 			bIsCurrentlyJumping = false;
+			bIsFalling = !bIsOnGround;
 			CurrentJumpTime = 0;
 			return;
 		}
@@ -277,7 +304,7 @@ void UZomMovementComponent::Jump(float DeltaTime)
 				Velocity.Z = 0;
 			}
 
-			AddForce(FVector::UpVector * (JumpForce * JumpCurveValue));
+			AddForce(FVector::UpVector * (JumpForce * JumpCurveValue), DeltaTime);
 		}
 	}
 }
@@ -291,7 +318,7 @@ void UZomMovementComponent::Move(float DeltaTime)
 	AActor* Owner = GetOwner();
 
 	// Add forward force and friction
-	AddForce(Owner->GetActorForwardVector() * Acceleration * IsMoving());
+	AddForce(Owner->GetActorForwardVector() * Acceleration * IsMoving(), DeltaTime);
 	AddMovementFriction(Owner->GetActorForwardVector());
 
 	float RemainingTime = DeltaTime;
@@ -330,9 +357,9 @@ void UZomMovementComponent::Move(float DeltaTime)
 /**
  * @brief Adds force incrementally
  * @param Force Vector for which direction and force to add
- */void UZomMovementComponent::AddForce(const FVector& Force)
+ */void UZomMovementComponent::AddForce(const FVector& Force, float DeltaTime)
  {
-	 Velocity += Force * GetWorld()->GetDeltaSeconds();
+	 Velocity += Force * DeltaTime;
  }
 
  /**

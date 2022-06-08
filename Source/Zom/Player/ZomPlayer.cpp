@@ -8,6 +8,7 @@
 AZomPlayer::AZomPlayer()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	bAllowTickBeforeBeginPlay = false;
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -24,6 +25,7 @@ AZomPlayer::AZomPlayer()
 	StaticMesh->SetupAttachment(Mesh);
 
 	MovementComponent = CreateDefaultSubobject<UZomMovementComponent>(TEXT("MovementComponent"));
+	MovementComponent->SetTickGroup(ETickingGroup::TG_DuringPhysics);
 	
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -38,9 +40,6 @@ AZomPlayer::AZomPlayer()
 void AZomPlayer::BeginPlay()
 {
 	Super::BeginPlay();
-
-	APlayerController* PlayerController = UGameplayStatics::GetPlayerControllerFromID(GetWorld(), 0);
-	PlayerController->Possess(this);
 }
 
 void AZomPlayer::SetupPlayerInputComponent(UInputComponent* InputComp)
