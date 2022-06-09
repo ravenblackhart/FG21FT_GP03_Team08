@@ -1,6 +1,5 @@
 #include "Zom/Player/ZomMovementComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Kismet/KismetSystemLibrary.h"
 
 UZomMovementComponent::UZomMovementComponent()
 {
@@ -37,6 +36,11 @@ UZomMovementComponent::UZomMovementComponent()
 	RideHeight = 100.f;
 	RideSpringStrength = 1000.f;
 	RideSpringDamper = 1.5f;
+	
+	// Collision detection
+	TraceParams.AddIgnoredActor(GetOwner());
+	Response.CollisionResponse.SetResponse(ECC_GameTraceChannel1, ECollisionResponse::ECR_Ignore);
+	Response.CollisionResponse.SetResponse(ECC_GameTraceChannel2, ECollisionResponse::ECR_Ignore);
 }
 
 void UZomMovementComponent::BeginPlay()
@@ -51,7 +55,7 @@ void UZomMovementComponent::BeginPlay()
 void UZomMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	
+
 	Hover(DeltaTime);
 	Jump(DeltaTime);
 	Rotate(DeltaTime);
@@ -131,6 +135,9 @@ bool UZomMovementComponent::IsFalling() const
 	return bIsFalling;
 }
 
+/**
+ * @brief Disables movement input
+ */
 void UZomMovementComponent::DisableMovement()
 {
 	Velocity = FVector::ZeroVector;
@@ -139,6 +146,9 @@ void UZomMovementComponent::DisableMovement()
 	MoveRightLeftInput = 0;
 }
 
+/**
+ * @brief Enables movement input
+ */
 void UZomMovementComponent::EnableMovement()
 {
 	Velocity = FVector::ZeroVector;
@@ -162,6 +172,18 @@ bool UZomMovementComponent::CanJump() const
 {
 	return bIsOnGround && !bIsCurrentlyJumping;
 }
+
+/**
+ * @brief Resets the jump state
+ */
+void UZomMovementComponent::ResetJump()
+{
+	bIsCurrentlyJumping = false;
+	bIsFalling = true;
+	CurrentJumpTime = 0.f;
+	Velocity.Z = 0.f;
+}
+
 
 /**
  * @brief Rotates the player when changing direction with the help of WASD and the camera
@@ -199,12 +221,10 @@ void UZomMovementComponent::Hover(float DeltaTime)
 	FVector Start = Owner->GetActorLocation();
 	FVector End = Start + (FVector::DownVector * LineTraceLength);
 	FHitResult Hit;
-	FCollisionQueryParams TraceParams;
-	TraceParams.AddIgnoredActor(Owner);
-
+	
 	// Push Up (On Ground)
 	// TODO: Make sure its the ground that was hit
-	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_WorldStatic, FCollisionShape::MakeSphere(30.0f), TraceParams))
+	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_WorldStatic, FCollisionShape::MakeSphere(15.0f), TraceParams, Response))
 	{
 		float HitDist = FVector::Distance(Start, Hit.Location);
 		float Difference = HitDist - RideHeight;
@@ -252,8 +272,6 @@ void UZomMovementComponent::Hover(float DeltaTime)
  */
 void UZomMovementComponent::Jump(float DeltaTime)
 {
-	AActor* Owner = GetOwner();
-
 	// Initialize the jump
 	if (CanJump() && bIsPressingJumpInput)
 	{
@@ -328,6 +346,12 @@ void UZomMovementComponent::Move(float DeltaTime)
 	{
 		FHitResult Hit;
 		Owner->AddActorWorldOffset(Velocity * RemainingTime, true, &Hit);
+
+		// Check if the character is jumping and got hit in the head
+		if (FMath::Abs(Hit.ImpactNormal.Z) > 0.25f && bIsCurrentlyJumping)
+		{
+			ResetJump();
+		}
 
 		// We hitted something while we moved
 		if (Hit.bBlockingHit)

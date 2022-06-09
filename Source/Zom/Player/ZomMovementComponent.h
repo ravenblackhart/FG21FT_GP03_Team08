@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "CollisionQueryParams.h"
 #include "ZomMovementComponent.generated.h"
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -12,6 +13,9 @@ class ZOM_API UZomMovementComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	FCollisionQueryParams TraceParams;
+	FCollisionResponseParams Response;
+	
 	UZomMovementComponent();
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -109,6 +113,7 @@ private:
 
 	bool IsMoving() const;
 	bool CanJump() const;
+	void ResetJump();
 	void Rotate(float DeltaTime) const;
 	void Hover(float DeltaTime);
 	void Jump(float DeltaTime);
