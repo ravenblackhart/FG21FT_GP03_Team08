@@ -17,8 +17,6 @@ class ZOM_API IZomTriggerInterface
 	GENERATED_BODY()
 
 public:
-
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent)
 	void OnTriggered();
-	
 };

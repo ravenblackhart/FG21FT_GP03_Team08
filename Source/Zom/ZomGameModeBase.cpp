@@ -5,7 +5,10 @@
 
 AZomGameModeBase::AZomGameModeBase()
 {
-	AvailableAllies.Init(0, 3);
+	AvailableAllies.Init(FArrayStruct(), 4);
+	for (FArrayStruct each : AvailableAllies)
+		each.Allies.Init(nullptr, 0);
+
 	RespawnPoints.Init(nullptr, 3);
 }
 

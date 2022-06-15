@@ -18,7 +18,6 @@ class ZOM_API IZomCombatInterface
 	GENERATED_BODY()
 
 public:
-	
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category="Combat")
 	bool IsTargetable();
 

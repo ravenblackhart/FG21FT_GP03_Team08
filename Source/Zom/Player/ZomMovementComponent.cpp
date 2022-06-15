@@ -4,6 +4,9 @@
 UZomMovementComponent::UZomMovementComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
+
+	FixedTime = 1.f/60.f;
 
 	// Movement controls 
 	MoveForwardBackwardInput = 0.f;
@@ -32,10 +35,10 @@ UZomMovementComponent::UZomMovementComponent()
 	bIsOnGround = true;
 	bIsFalling = false;
 	GravityForce = 980.f;
-	LineTraceLength = 200.f;
-	RideHeight = 100.f;
-	RideSpringStrength = 1000.f;
-	RideSpringDamper = 1.5f;
+	HoverLineTraceLength = 200.f;
+	HoverHeight = 100.f;
+	HoverSpringStrength = 1000.f;
+	HoverSpringDamper = 1.5f;
 	
 	// Collision detection
 	TraceParams.AddIgnoredActor(GetOwner());
@@ -56,10 +59,17 @@ void UZomMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	Hover(DeltaTime);
-	Jump(DeltaTime);
-	Rotate(DeltaTime);
-	Move(DeltaTime);
+	/*if (bIsMovementDisabled)
+	{
+		return;
+	}*/
+
+	TryAddHovering(DeltaTime);
+	TryAddJump(DeltaTime);
+	TryAddRotation(DeltaTime);
+	TryAddMovement(DeltaTime);
+	UpdateMovement(DeltaTime);
+	OuterCollisionDetection(DeltaTime);
 }
 
 /**
@@ -184,55 +194,57 @@ void UZomMovementComponent::ResetJump()
 	Velocity.Z = 0.f;
 }
 
-
 /**
  * @brief Rotates the player when changing direction with the help of WASD and the camera
  * @param DeltaTime
  */
-void UZomMovementComponent::Rotate(float DeltaTime) const
+void UZomMovementComponent::TryAddRotation(float DeltaTime) const
 {
 	if (!IsMoving())
 	{
 		return;
 	}
 
-	AActor* Owner = GetOwner();
-
 	FVector CameraLocation = GetWorld()->GetFirstPlayerController()->PlayerCameraManager->GetCameraLocation();
-	FVector CameraLocationDir = Owner->GetActorLocation() - CameraLocation;
+	FVector CameraLocationDir = GetOwner()->GetActorLocation() - CameraLocation;
 	CameraLocationDir.Normalize();
 
 	FVector MovementDirection = FVector(MoveForwardBackwardInput, MoveRightLeftInput, 1.f);
 	FRotator YawRotation = FRotator(0.f, CameraLocationDir.Rotation().Yaw + MovementDirection.Rotation().Yaw, 0.f);
 
-	Owner->SetActorRotation(FMath::RInterpTo(Owner->GetActorRotation(), YawRotation, DeltaTime, CharacterRotationRate));
+	GetOwner()->SetActorRotation(FMath::RInterpTo(GetOwner()->GetActorRotation(), YawRotation, DeltaTime, CharacterRotationRate));
 }
 
 /**
  * @brief Makes the player hover above ground, so the player can walk up/down of slopes
  */
-void UZomMovementComponent::Hover(float DeltaTime)
+void UZomMovementComponent::TryAddHovering(float DeltaTime)
 {
 	// Push Down
 	AddForce(FVector::DownVector * GravityForce, DeltaTime);
 
 	// Sweep data
-	AActor* Owner = GetOwner();
-	FVector Start = Owner->GetActorLocation();
-	FVector End = Start + (FVector::DownVector * LineTraceLength);
+	const FVector Start = GetOwner()->GetActorLocation();
+	const FVector End = Start + (FVector::DownVector * HoverLineTraceLength);
 	FHitResult Hit;
 	
 	// Push Up (On Ground)
 	// TODO: Make sure its the ground that was hit
-	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_WorldStatic, FCollisionShape::MakeSphere(15.0f), TraceParams, Response))
+	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_WorldStatic, FCollisionShape::MakeCapsule(30.f, 20.f), TraceParams, Response))
 	{
-		float HitDist = FVector::Distance(Start, Hit.Location);
-		float Difference = HitDist - RideHeight;
-		float StaticTime = 1.f/60.f; // 60 fps
-		float CappedDeltaTime = FMath::Min(DeltaTime, StaticTime);
-		float SpringHoverForce = (Difference * RideSpringStrength) + (Velocity.Z * RideSpringDamper);
+		const float HitDist = FVector::Distance(Start, Hit.Location);
+		const float Difference = HitDist - HoverHeight;
+		const float CappedDeltaTime = FMath::Min(DeltaTime, FixedTime);
+		const float SpringHoverForce = (Difference * HoverSpringStrength) + (Velocity.Z * HoverSpringDamper);
+		const float CollisionDotProduct = FMath::Abs(GetOwner()->GetActorUpVector().Dot(Hit.Normal));
 
-		if (HitDist <= RideHeight && !bIsCurrentlyJumping)
+		// If the collision is not from beneath, it should be ignored.
+		if (CollisionDotProduct < 0.5f)
+		{
+			return;
+		}
+
+		if (HitDist <= HoverHeight && !bIsCurrentlyJumping)
 		{
 			CurrentCoyoteTimer = 0.f;
 			bIsOnGround = true;
@@ -270,7 +282,7 @@ void UZomMovementComponent::Hover(float DeltaTime)
  * @brief Check if the player is jumping and adds upward force
  * @param DeltaTime
  */
-void UZomMovementComponent::Jump(float DeltaTime)
+void UZomMovementComponent::TryAddJump(float DeltaTime)
 {
 	// Initialize the jump
 	if (CanJump() && bIsPressingJumpInput)
@@ -280,6 +292,7 @@ void UZomMovementComponent::Jump(float DeltaTime)
 		bIsCurrentlyJumping = true;
 		bIsOnGround = false;
 		bIsPressingJumpInput = false;
+		Velocity.Z = 0.f;
 	}
 	else if (bIsPressingJumpInput && !bQueueJump) // Queuing a jump
 	{
@@ -314,13 +327,8 @@ void UZomMovementComponent::Jump(float DeltaTime)
 
 		if (bIsCurrentlyJumping)
 		{
-			float JumpPercentage = CurrentJumpTime / JumpTime;
-			float JumpCurveValue = JumpCurve->GetFloatValue(JumpPercentage * MaxJumpCurveTime);
-
-			if (Velocity.Z < 0)
-			{
-				Velocity.Z = 0;
-			}
+			const float JumpPercentage = CurrentJumpTime / JumpTime;
+			const float JumpCurveValue = JumpCurve->GetFloatValue(JumpPercentage * MaxJumpCurveTime);
 
 			AddForce(FVector::UpVector * (JumpForce * JumpCurveValue), DeltaTime);
 		}
@@ -331,47 +339,27 @@ void UZomMovementComponent::Jump(float DeltaTime)
  * @brief Moves the player forward direction, to go other directions the player has to rotate
  * @param DeltaTime
  */
-void UZomMovementComponent::Move(float DeltaTime)
+void UZomMovementComponent::TryAddMovement(float DeltaTime)
 {
-	AActor* Owner = GetOwner();
-
 	// Add forward force and friction
-	AddForce(Owner->GetActorForwardVector() * Acceleration * IsMoving(), DeltaTime);
-	AddMovementFriction(Owner->GetActorForwardVector());
+	AddForce(GetOwner()->GetActorForwardVector() * (Acceleration * IsMoving()), DeltaTime);
+	AddMovementFriction(ForwardMovementFriction);
+}
 
+void UZomMovementComponent::UpdateMovement(float DeltaTime)
+{
 	float RemainingTime = DeltaTime;
 	int Interations = 0;
 
-	while (RemainingTime > 0.f && ++Interations < 10)
+	while (RemainingTime > 0.f && ++Interations < 5)
 	{
 		FHitResult Hit;
-		Owner->AddActorWorldOffset(Velocity * RemainingTime, true, &Hit);
+		GetOwner()->AddActorWorldOffset(Velocity * RemainingTime, true, &Hit);
 
-		// Check if the character is jumping and got hit in the head
-		if (FMath::Abs(Hit.ImpactNormal.Z) > 0.25f && bIsCurrentlyJumping)
-		{
-			ResetJump();
-		}
-
-		// We hitted something while we moved
 		if (Hit.bBlockingHit)
 		{
-			// If first time overlapping collision
-			if (Hit.bStartPenetrating)
-			{
-				// Depenetrating the overlap
-				Owner->AddActorWorldOffset(Hit.Normal * (Hit.PenetrationDepth + 0.1f));
-			}
-			else
-			{
-				// If one direction is colliding, block it and continue move other direction
-				// For example X direction is blocking, keep moving Y direction 
-				FVector PlaneVector = FVector::VectorPlaneProject(Velocity, Hit.Normal);
-				Velocity = FVector(PlaneVector.X, PlaneVector.Y, Velocity.Z);
-				RemainingTime -= RemainingTime * Hit.Time;
-			}
-		}
-		else
+			HandleCollision(Hit, RemainingTime);
+		} else 
 		{
 			break;
 		}
@@ -379,22 +367,84 @@ void UZomMovementComponent::Move(float DeltaTime)
 }
 
 /**
+ * @brief Checks if other WorldDynamics things is colliding while not moving (For example the battle ram)
+ * If true, CheckCollsion will handle depenetration problems
+ * @param DeltaTime
+ */
+void UZomMovementComponent::OuterCollisionDetection(float DeltaTime)
+{
+	TArray<FHitResult> Hits;
+	const FVector Start = GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * 10.f;
+	const FVector End = GetOwner()->GetActorLocation() + GetOwner()->GetActorUpVector() * 10.f;
+	
+	GetWorld()->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeCapsule(20.f, 25.f), TraceParams);
+
+	for (auto Hit : Hits)
+	{
+		if (Hit.bBlockingHit)
+		{
+			HandleCollision(Hit, DeltaTime);
+		}
+	}
+}
+
+/**
+ * @brief 
+ * @param Hit 
+ * @param a 
+ */
+void UZomMovementComponent::HandleCollision(FHitResult& Hit, float& RemainingTime)
+{
+	// Check if the character is jumping and got hit in the head
+	if (GetOwner()->GetActorUpVector().Dot(Hit.Normal) > 0.5f && bIsCurrentlyJumping)
+	{
+		ResetJump();
+	}
+
+	// If first time overlapping collision
+	if (Hit.bStartPenetrating)
+	{
+		FVector LocationDirection = (Hit.GetActor()->GetActorLocation() - Hit.Location);
+		LocationDirection.Normalize();
+		LocationDirection.Z = 0.f;
+
+		const float CollisionDirection = FMath::Abs(Hit.GetActor()->GetActorForwardVector().Dot(LocationDirection));
+		const float DepenetrationOffset = 0.05f * (1.f + (1.f - CollisionDirection));
+		
+		FVector Depenetration = Hit.Normal * (Hit.PenetrationDepth + DepenetrationOffset);
+		Depenetration.Z = 0;
+
+		GetOwner()->AddActorWorldOffset(Depenetration);
+	}
+	else
+	{
+		// If one direction is colliding, block it and continue move other direction
+		// For example X direction is blocking, keep moving Y direction 
+		FVector PlaneVector = FVector::VectorPlaneProject(Velocity, Hit.Normal);
+		Velocity = FVector(PlaneVector.X, PlaneVector.Y, Velocity.Z);
+		RemainingTime -= RemainingTime * Hit.Time;
+	}
+}
+
+/**
  * @brief Adds force incrementally
  * @param Force Vector for which direction and force to add
- */void UZomMovementComponent::AddForce(const FVector& Force, float DeltaTime)
- {
-	 Velocity += Force * DeltaTime;
- }
+ */
+void UZomMovementComponent::AddForce(const FVector& Force, float DeltaTime)
+{
+	Velocity += Force * DeltaTime;
+}
 
  /**
   * @brief Adjust and adds friction the forward movement force
-  * @param ProjectOnToDirection
+  * @param FrictionPower How much of the forward velocity will be removed per second.
   */
- void UZomMovementComponent::AddMovementFriction(const FVector& ProjectOnToDirection)
- {
-	 FVector ForwardMovement = Velocity.ProjectOnTo(ProjectOnToDirection);
-	 ForwardMovement -= (ForwardMovement * ForwardMovementFriction * GetWorld()->GetDeltaSeconds());
-	 ForwardMovement.Z = Velocity.Z;
+void UZomMovementComponent::AddMovementFriction(UPARAM() float FrictionPower)
+{
+	FVector ForwardMovement = Velocity.ProjectOnTo(GetOwner()->GetActorForwardVector());
+	
+	ForwardMovement -= (ForwardMovement * FrictionPower * GetWorld()->GetDeltaSeconds());
+	ForwardMovement.Z = Velocity.Z;
 
-	 Velocity = ForwardMovement;
- }
+	Velocity = ForwardMovement;
+}

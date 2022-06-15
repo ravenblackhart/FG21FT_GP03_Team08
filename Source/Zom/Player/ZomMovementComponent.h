@@ -13,10 +13,11 @@ class ZOM_API UZomMovementComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	UZomMovementComponent();
+	
 	FCollisionQueryParams TraceParams;
 	FCollisionResponseParams Response;
 	
-	UZomMovementComponent();
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	void SetMoveForwardBackwardInput(float Value);
@@ -40,11 +41,16 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	void EnableMovement();
+
+	UFUNCTION(BlueprintCallable)
+	void AddMovementFriction(const float FrictionPower);
 private:
 	// Input
 	float MoveForwardBackwardInput;
 	float MoveRightLeftInput;
 	bool bIsPressingJumpInput;
+
+	float FixedTime;
 	
 	bool bIsCurrentlyJumping;
 	bool bIsMovementDisabled;
@@ -97,27 +103,29 @@ private:
 	// How far down from the characters center we track the ground
 	// The further down, the more spring-effect we can add when the player lands
 	UPROPERTY(EditAnywhere, Category = "Movement|Hover")
-	float LineTraceLength;
+	float HoverLineTraceLength;
 
 	// The height of edges we can walk over
 	UPROPERTY(EditAnywhere, Category = "Movement|Hover")
-	float RideHeight;
+	float HoverHeight;
 
 	// How hard the player lands on the ground. The higher the number, the faster/harder you land
 	UPROPERTY(EditAnywhere, Category = "Movement|Hover")
-	float RideSpringStrength;
+	float HoverSpringStrength;
 
 	// Soften the land. The lower the number, the more spring-effect will be added
 	UPROPERTY(EditAnywhere, Category = "Movement|Hover")
-	float RideSpringDamper;
+	float HoverSpringDamper;
 
 	bool IsMoving() const;
 	bool CanJump() const;
 	void ResetJump();
-	void Rotate(float DeltaTime) const;
-	void Hover(float DeltaTime);
-	void Jump(float DeltaTime);
-	void Move(float DeltaTime);
+	void TryAddRotation(float DeltaTime) const;
+	void TryAddHovering(float DeltaTime);
+	void TryAddJump(float DeltaTime);
+	void TryAddMovement(float DeltaTime);
+	void UpdateMovement(float DeltaTime);
+	void OuterCollisionDetection(float DeltaTime);
+	void HandleCollision(FHitResult& Hit, float& RemainingTime);
 	void AddForce(const FVector& Force, float DeltaTime);
-	void AddMovementFriction(const FVector& ForwardVector);
 };

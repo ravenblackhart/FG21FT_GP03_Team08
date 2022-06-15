@@ -4,11 +4,23 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "Zom/Allies/ZomAlly.h"
 #include "ZomGameModeBase.generated.h"
 
 /**
  * 
  */
+
+USTRUCT(BlueprintType)
+struct FArrayStruct
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(BlueprintReadWrite)
+	TArray<AZomAlly*> Allies;
+};
+
 UCLASS(Abstract)
 class ZOM_API AZomGameModeBase : public AGameModeBase
 {
@@ -21,7 +33,7 @@ public:
 	AActor* BatteringRam = nullptr;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<int> AvailableAllies;
+	TArray<FArrayStruct> AvailableAllies;
 
 	UPROPERTY(BlueprintReadWrite)
 	TArray<AActor*> RespawnPoints;
