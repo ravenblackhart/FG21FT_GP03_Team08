@@ -15,6 +15,7 @@ UZomMovementComponent::UZomMovementComponent()
 
 	// Move
 	Acceleration = 1000.f;
+	MaxAngle = 40.f;
 	ForwardMovementFriction = 4.5f;
 	CharacterRotationRate = 10.f;
 	bIsMovementDisabled = false;
@@ -51,18 +52,13 @@ void UZomMovementComponent::BeginPlay()
 	Super::BeginPlay();
 
 	JumpCurve->GetTimeRange(MinJumpCurveTime, MaxJumpCurveTime);
-	CurrentJumpTime = MinJumpCurveTime;
+	CurrentJumpTime = 0.f;
 }
 
 
 void UZomMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	/*if (bIsMovementDisabled)
-	{
-		return;
-	}*/
 
 	TryAddHovering(DeltaTime);
 	TryAddJump(DeltaTime);
@@ -229,22 +225,22 @@ void UZomMovementComponent::TryAddHovering(float DeltaTime)
 	FHitResult Hit;
 	
 	// Push Up (On Ground)
-	// TODO: Make sure its the ground that was hit
-	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_WorldStatic, FCollisionShape::MakeCapsule(30.f, 20.f), TraceParams, Response))
+	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, GetOwner()->GetActorRotation().Quaternion(), ECC_WorldStatic, FCollisionShape::MakeBox(FVector(12.4f, 12.4f, 25.f)), TraceParams, Response))
 	{
 		const float HitDist = FVector::Distance(Start, Hit.Location);
 		const float Difference = HitDist - HoverHeight;
 		const float CappedDeltaTime = FMath::Min(DeltaTime, FixedTime);
 		const float SpringHoverForce = (Difference * HoverSpringStrength) + (Velocity.Z * HoverSpringDamper);
-		const float CollisionDotProduct = FMath::Abs(GetOwner()->GetActorUpVector().Dot(Hit.Normal));
-
-		// If the collision is not from beneath, it should be ignored.
-		if (CollisionDotProduct < 0.5f)
-		{
-			return;
-		}
-
-		if (HitDist <= HoverHeight && !bIsCurrentlyJumping)
+		const float CollisionGroundProjection = GetOwner()->GetActorUpVector().Dot(Hit.Normal);
+		const float CollisionForwardProjection = GetOwner()->GetActorForwardVector().Dot(Hit.Normal);
+		const float JumpSpeed = FVector::DotProduct(GetOwner()->GetActorUpVector(), Velocity.ProjectOnTo(GetOwner()->GetActorUpVector()));
+		constexpr float MaxGroundProjection = 0.3f;
+		
+		// Sees if the player is on the ground by checking:
+		// - If the character is on the surface
+		// - If the character is not jumping by checking the jump speed
+		// - If the ground collision has an ok angle / not to steep
+		if (HitDist <= HoverHeight && !bIsCurrentlyJumping && JumpSpeed < 25.f && CollisionGroundProjection >= MaxGroundProjection)
 		{
 			CurrentCoyoteTimer = 0.f;
 			bIsOnGround = true;
@@ -255,24 +251,47 @@ void UZomMovementComponent::TryAddHovering(float DeltaTime)
 			bIsFalling = true;
 		}
 
+		// If character is already on the ground
 		if (bIsOnGround)
 		{
+			const float LocalAngle = FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct( Hit.GetActor()->GetActorUpVector(), Hit.Normal))));
+			const float WorldAngle = FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct( FVector::UpVector, Hit.Normal))));
+			const float Angle = WorldAngle == LocalAngle ? WorldAngle : WorldAngle - LocalAngle;
+			const bool TooSteepOfAnAngle = (Angle < MaxAngle && CollisionGroundProjection < MaxGroundProjection) || (Angle >= MaxAngle && CollisionGroundProjection < MaxGroundProjection);
+
+			// Check if the ground angle is too steep
+			// In That case, stop moving and move backwards, and sees if the character faces the steep
+			if (TooSteepOfAnAngle)
+			{
+				Velocity -= Velocity.ProjectOnTo(GetOwner()->GetActorForwardVector());
+				GetOwner()->AddActorWorldOffset(Hit.Normal);
+				bIsTooSteep = TooSteepOfAnAngle && CollisionForwardProjection <= -0.25f;
+			} else
+			{
+				bIsTooSteep = false;
+			}
+			
 			AddForce(FVector::DownVector * SpringHoverForce, CappedDeltaTime);
 		}
 	}
 	else if (!bIsCurrentlyJumping)
 	{
+		// If the character didn't collide with any surface underneath but is still on the ground
 		if (bIsOnGround)
 		{
+			// Activate coyote time and remove steep control
 			CurrentCoyoteTimer += DeltaTime;
+			bIsTooSteep = false;
 
 			if (CurrentCoyoteTimer >= CoyoteTime)
 			{
 				CurrentCoyoteTimer = 0.f;
 				bIsOnGround = false;
 			}
+			
 		} else
 		{
+			// If the character is not on the ground and do not hit any surface, the character is falling
 			bIsFalling = true;
 		}
 	}
@@ -285,7 +304,7 @@ void UZomMovementComponent::TryAddHovering(float DeltaTime)
 void UZomMovementComponent::TryAddJump(float DeltaTime)
 {
 	// Initialize the jump
-	if (CanJump() && bIsPressingJumpInput)
+	if (CanJump() && bIsPressingJumpInput && !bIsTooSteep)
 	{
 		CurrentJumpBufferTimer = 0;
 		CurrentCoyoteTimer = 0;
@@ -320,6 +339,7 @@ void UZomMovementComponent::TryAddJump(float DeltaTime)
 		if (CurrentJumpTime >= JumpTime || bIsFalling && bIsOnGround)
 		{
 			bIsCurrentlyJumping = false;
+			AddForce(FVector::DownVector * GravityForce, DeltaTime);
 			bIsFalling = !bIsOnGround;
 			CurrentJumpTime = 0;
 			return;
@@ -342,7 +362,11 @@ void UZomMovementComponent::TryAddJump(float DeltaTime)
 void UZomMovementComponent::TryAddMovement(float DeltaTime)
 {
 	// Add forward force and friction
-	AddForce(GetOwner()->GetActorForwardVector() * (Acceleration * IsMoving()), DeltaTime);
+	if (!bIsTooSteep)
+	{
+		AddForce(GetOwner()->GetActorForwardVector() * (Acceleration * IsMoving()), DeltaTime);	
+	}
+	
 	AddMovementFriction(ForwardMovementFriction);
 }
 
@@ -377,7 +401,7 @@ void UZomMovementComponent::OuterCollisionDetection(float DeltaTime)
 	const FVector Start = GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * 10.f;
 	const FVector End = GetOwner()->GetActorLocation() + GetOwner()->GetActorUpVector() * 10.f;
 	
-	GetWorld()->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeCapsule(20.f, 25.f), TraceParams);
+	GetWorld()->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeCapsule(24.f, 30.f), TraceParams);
 
 	for (auto Hit : Hits)
 	{

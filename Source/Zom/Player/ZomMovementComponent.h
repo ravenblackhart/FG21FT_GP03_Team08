@@ -50,12 +50,13 @@ private:
 	float MoveRightLeftInput;
 	bool bIsPressingJumpInput;
 
+	bool bIsTooSteep;
 	float FixedTime;
 	
 	bool bIsCurrentlyJumping;
 	bool bIsMovementDisabled;
 	bool bIsOnGround;
-	bool bIsFalling;
+	bool bIsFalling; 
 	bool bQueueJump;
 	float MinJumpCurveTime;
 	float CurrentJumpTime;
@@ -67,6 +68,10 @@ private:
 	// How fast the player moves
 	UPROPERTY(EditAnywhere, Category = "Movement|Move")
 	float Acceleration;
+
+	// How steep of a surface the character can walk on.  
+	UPROPERTY(EditAnywhere, Category = "Movement|Move")
+	float MaxAngle;
 
 	// How much friction to add when move forward
 	UPROPERTY(EditAnywhere, Category = "Movement|Move")
