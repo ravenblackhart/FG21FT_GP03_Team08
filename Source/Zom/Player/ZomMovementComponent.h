@@ -58,11 +58,9 @@ private:
 	bool bIsOnGround;
 	bool bIsFalling; 
 	bool bQueueJump;
-	float MinJumpCurveTime;
 	float CurrentJumpTime;
 	float CurrentCoyoteTimer;
 	float CurrentJumpBufferTimer;
-	float MaxJumpCurveTime;
 	FVector Velocity;
 
 	// How fast the player moves
@@ -80,10 +78,6 @@ private:
 	// How fast the player rotates when changing direction
 	UPROPERTY(EditAnywhere, Category = "Movement|Move", meta=(ClampMin = "0.0", ClampMax = "10.0", UIMin = "0.0", UIMax = "10.0"))
 	float CharacterRotationRate;
-
-	// How the jump force should be applied
-	UPROPERTY(EditAnywhere, Category = "Movement|Jump")
-	UCurveFloat* JumpCurve;
 
 	// How much force to push up when jump
 	UPROPERTY(EditAnywhere, Category = "Movement|Jump")

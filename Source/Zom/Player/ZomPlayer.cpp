@@ -21,12 +21,9 @@ AZomPlayer::AZomPlayer()
 	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(RootComponent);
 
-	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Static Mesh"));
-	StaticMesh->SetupAttachment(Mesh);
-
 	MovementComponent = CreateDefaultSubobject<UZomMovementComponent>(TEXT("MovementComponent"));
 	MovementComponent->SetTickGroup(ETickingGroup::TG_DuringPhysics);
-	
+	 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 300.f;

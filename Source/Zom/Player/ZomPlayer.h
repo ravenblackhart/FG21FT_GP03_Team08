@@ -23,7 +23,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	USpringArmComponent* CameraBoom;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera") 
 	UCameraComponent* FollowCamera;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -41,10 +41,7 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	UCapsuleComponent* CapsuleComponent;
 
-	UPROPERTY(VisibleAnywhere)
-	UStaticMeshComponent* StaticMesh;
-
-	void SetupPlayerInputComponent(UInputComponent* InputComp) override;
+	virtual void SetupPlayerInputComponent(UInputComponent* InputComp) override;
 	void HandleMoveForwardBackwardInput(float Value);
 	void HandleMoveRightLeftInput(float Value);
 	void HandleJumpPressedInput();

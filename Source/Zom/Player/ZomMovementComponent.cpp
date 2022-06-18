@@ -22,8 +22,6 @@ UZomMovementComponent::UZomMovementComponent()
 
 	// Jump
 	bIsCurrentlyJumping = false;
-	MinJumpCurveTime = 0.f;
-	MaxJumpCurveTime = 0.f;
 	JumpForce = 5000.f;
 	CurrentJumpTime = 0.f;
 	JumpTime = 0.8f;
@@ -50,9 +48,6 @@ UZomMovementComponent::UZomMovementComponent()
 void UZomMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	JumpCurve->GetTimeRange(MinJumpCurveTime, MaxJumpCurveTime);
-	CurrentJumpTime = 0.f;
 }
 
 
@@ -225,7 +220,7 @@ void UZomMovementComponent::TryAddHovering(float DeltaTime)
 	FHitResult Hit;
 	
 	// Push Up (On Ground)
-	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, GetOwner()->GetActorRotation().Quaternion(), ECC_WorldStatic, FCollisionShape::MakeBox(FVector(12.4f, 12.4f, 25.f)), TraceParams, Response))
+	if (GetWorld()->SweepSingleByChannel(Hit, Start, End, GetOwner()->GetActorRotation().Quaternion(), ECC_WorldStatic, FCollisionShape::MakeBox(FVector(10.f, 10.f, 25.f)), TraceParams, Response))
 	{
 		const float HitDist = FVector::Distance(Start, Hit.Location);
 		const float Difference = HitDist - HoverHeight;
@@ -254,9 +249,9 @@ void UZomMovementComponent::TryAddHovering(float DeltaTime)
 		// If character is already on the ground
 		if (bIsOnGround)
 		{
-			const float LocalAngle = FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct( Hit.GetActor()->GetActorUpVector(), Hit.Normal))));
-			const float WorldAngle = FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct( FVector::UpVector, Hit.Normal))));
-			const float Angle = WorldAngle == LocalAngle ? WorldAngle : WorldAngle - LocalAngle;
+			const float LocalAngle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct( Hit.GetActor()->GetActorUpVector(), Hit.Normal)));
+			const float WorldAngle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct( FVector::UpVector, Hit.Normal)));
+			const float Angle = WorldAngle == LocalAngle ? FMath::Abs(WorldAngle) : FMath::Abs((WorldAngle - LocalAngle));
 			const bool TooSteepOfAnAngle = (Angle < MaxAngle && CollisionGroundProjection < MaxGroundProjection) || (Angle >= MaxAngle && CollisionGroundProjection < MaxGroundProjection);
 
 			// Check if the ground angle is too steep
@@ -269,9 +264,8 @@ void UZomMovementComponent::TryAddHovering(float DeltaTime)
 			} else
 			{
 				bIsTooSteep = false;
+				AddForce(FVector::DownVector * SpringHoverForce, CappedDeltaTime);
 			}
-			
-			AddForce(FVector::DownVector * SpringHoverForce, CappedDeltaTime);
 		}
 	}
 	else if (!bIsCurrentlyJumping)
@@ -347,10 +341,8 @@ void UZomMovementComponent::TryAddJump(float DeltaTime)
 
 		if (bIsCurrentlyJumping)
 		{
-			const float JumpPercentage = CurrentJumpTime / JumpTime;
-			const float JumpCurveValue = JumpCurve->GetFloatValue(JumpPercentage * MaxJumpCurveTime);
-
-			AddForce(FVector::UpVector * (JumpForce * JumpCurveValue), DeltaTime);
+			
+			AddForce(FVector::UpVector * JumpForce, DeltaTime);
 		}
 	}
 }
@@ -401,7 +393,7 @@ void UZomMovementComponent::OuterCollisionDetection(float DeltaTime)
 	const FVector Start = GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * 10.f;
 	const FVector End = GetOwner()->GetActorLocation() + GetOwner()->GetActorUpVector() * 10.f;
 	
-	GetWorld()->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeCapsule(24.f, 30.f), TraceParams);
+	GetWorld()->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeCapsule(20.f, 65.f), TraceParams, Response);
 
 	for (auto Hit : Hits)
 	{
