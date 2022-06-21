@@ -76,7 +76,7 @@ private:
 	float ForwardMovementFriction;
 
 	// How fast the player rotates when changing direction
-	UPROPERTY(EditAnywhere, Category = "Movement|Move", meta=(ClampMin = "0.0", ClampMax = "10.0", UIMin = "0.0", UIMax = "10.0"))
+	UPROPERTY(EditAnywhere, Category = "Movement|Move", meta=(ClampMin = "0.0", ClampMax = "50.0", UIMin = "0.0", UIMax = "50.0"))
 	float CharacterRotationRate;
 
 	// How much force to push up when jump

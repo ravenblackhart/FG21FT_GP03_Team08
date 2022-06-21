@@ -241,6 +241,18 @@ void UZomMovementComponent::TryAddHovering(float DeltaTime)
 			bIsOnGround = true;
 			bIsFalling = false;
 		}
+		// Is likely stuck and need to be pushed out 
+		else if (HitDist <= HoverHeight && !bIsCurrentlyJumping && JumpSpeed < 25.f && CollisionGroundProjection < MaxGroundProjection)
+		{
+			float RemainingTime = DeltaTime;
+			int Interations = 0;
+
+			while (RemainingTime > 0.f && ++Interations < 5)
+			{
+				HandleCollision(Hit, RemainingTime);	
+			}
+			
+		}
 		else if (!bIsCurrentlyJumping && !bIsOnGround)
 		{
 			bIsFalling = true;
@@ -305,7 +317,7 @@ void UZomMovementComponent::TryAddJump(float DeltaTime)
 		bIsCurrentlyJumping = true;
 		bIsOnGround = false;
 		bIsPressingJumpInput = false;
-		Velocity.Z = 0.f;
+		Velocity.Z = JumpForce;
 	}
 	else if (bIsPressingJumpInput && !bQueueJump) // Queuing a jump
 	{
@@ -325,25 +337,10 @@ void UZomMovementComponent::TryAddJump(float DeltaTime)
 		}
 	}
 
-	// Jumping
-	if (bIsCurrentlyJumping)
+	if (bIsCurrentlyJumping && Velocity.Z <= (JumpForce / 2.f))
 	{
-		CurrentJumpTime += DeltaTime;
-
-		if (CurrentJumpTime >= JumpTime || bIsFalling && bIsOnGround)
-		{
-			bIsCurrentlyJumping = false;
-			AddForce(FVector::DownVector * GravityForce, DeltaTime);
-			bIsFalling = !bIsOnGround;
-			CurrentJumpTime = 0;
-			return;
-		}
-
-		if (bIsCurrentlyJumping)
-		{
-			
-			AddForce(FVector::UpVector * JumpForce, DeltaTime);
-		}
+		bIsCurrentlyJumping = false;
+		bIsFalling = true;
 	}
 }
 
@@ -393,7 +390,7 @@ void UZomMovementComponent::OuterCollisionDetection(float DeltaTime)
 	const FVector Start = GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * 10.f;
 	const FVector End = GetOwner()->GetActorLocation() + GetOwner()->GetActorUpVector() * 10.f;
 	
-	GetWorld()->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeCapsule(20.f, 65.f), TraceParams, Response);
+	GetWorld()->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeCapsule(20.f, 50.f), TraceParams, Response);
 
 	for (auto Hit : Hits)
 	{
@@ -412,7 +409,7 @@ void UZomMovementComponent::OuterCollisionDetection(float DeltaTime)
 void UZomMovementComponent::HandleCollision(FHitResult& Hit, float& RemainingTime)
 {
 	// Check if the character is jumping and got hit in the head
-	if (GetOwner()->GetActorUpVector().Dot(Hit.Normal) > 0.5f && bIsCurrentlyJumping)
+	if (GetOwner()->GetActorUpVector().Dot(Hit.Normal) < -0.5f && bIsCurrentlyJumping)
 	{
 		ResetJump();
 	}
@@ -436,8 +433,7 @@ void UZomMovementComponent::HandleCollision(FHitResult& Hit, float& RemainingTim
 	{
 		// If one direction is colliding, block it and continue move other direction
 		// For example X direction is blocking, keep moving Y direction 
-		FVector PlaneVector = FVector::VectorPlaneProject(Velocity, Hit.Normal);
-		Velocity = FVector(PlaneVector.X, PlaneVector.Y, Velocity.Z);
+		Velocity = FVector::VectorPlaneProject(Velocity, Hit.Normal);
 		RemainingTime -= RemainingTime * Hit.Time;
 	}
 }
